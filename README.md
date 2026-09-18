@@ -36,10 +36,11 @@ implement the identical contract with far less code.
 | | 🟢 No-code | 🟡 Managed-cloud | 🔵 Custom |
 |---|---|---|---|
 | **Folder** | [`01-nocode-n8n/`](01-nocode-n8n/) | [`02-managed-bedrock-kb/`](02-managed-bedrock-kb/) | [`03-custom-python/`](03-custom-python/) |
-| **Stack** | n8n + Supabase (pgvector) + OpenAI/Claude | Amazon Bedrock Knowledge Base + OpenSearch Serverless | Python: Chroma + BM25 hybrid, Titan/MiniLM, Claude |
+| **Stack** | n8n + Postgres/pgvector (Supabase-compatible) + local Ollama | Amazon Bedrock Knowledge Base + OpenSearch Serverless | Python: Chroma + BM25 hybrid, Titan/MiniLM, Claude |
 | **Who builds it** | An operator in an afternoon | A cloud engineer in a day | An engineer over days–weeks |
 | **You own** | a workflow you can edit in a GUI | AWS config (IaC) | all the code |
 | **Best when** | validating an idea, low volume, SMB budget | you're already on AWS and want managed scale | you need control: custom retrieval, eval gates, regulated rigor |
+| **Verified** | ✅ run end-to-end on a $0 self-hosted stack — real citation + refusal output in [its README](01-nocode-n8n/README.md#real-output) | code/IaC written, not stood up (would incur real AWS cost — see its README) | ✅ its own repo, [RegIntel](https://github.com/arbabc-ai/RegIntel), fully built and run |
 
 Each folder has its own README, the runnable artifact (n8n workflow JSON / Terraform + boto3 /
 Python package), and a "what this arm proves" note.

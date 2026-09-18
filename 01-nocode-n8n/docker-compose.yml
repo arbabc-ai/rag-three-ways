@@ -1,0 +1,54 @@
+# Local, $0 stand-up of the no-code arm: Postgres+pgvector in place of a hosted
+# Supabase project, and n8n itself, both self-hosted. This is what "an operator
+# in an afternoon, SMB budget" actually looks like end to end — see the README
+# for why this arm targets local Ollama instead of OpenAI/Anthropic API keys.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: raguser
+      POSTGRES_PASSWORD: ragpass
+      POSTGRES_DB: ragdb
+    ports:
+      - "55432:5432"
+    volumes:
+      - ./supabase_schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raguser -d ragdb"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # PostgREST: this is what turns the Postgres function below into the
+  # `.../rest/v1/rpc/match_documents` REST endpoint the n8n workflow calls —
+  # it's the same component a real Supabase project runs under the hood, so
+  # this local stack mirrors Supabase's actual architecture, not just its API.
+  postgrest:
+    image: postgrest/postgrest:latest
+    environment:
+      PGRST_DB_URI: postgres://raguser:ragpass@postgres:5432/ragdb
+      PGRST_DB_ANON_ROLE: raguser
+      PGRST_DB_SCHEMA: public
+    ports:
+      - "3001:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # host networking: this stack was verified on WSL2's native Linux Docker
+  # engine, where the bridge gateway (host.docker.internal) does NOT reach
+  # Ollama running as a Windows process on localhost — only WSL's own loopback-
+  # forwarding does. Host networking puts n8n in the same network namespace as
+  # the shell that can already reach Ollama on `localhost:11434`, which is the
+  # simplest fix. On Docker Desktop (Mac/Windows) `host.docker.internal` works
+  # normally and this can go back to bridge networking with `ports: 5678:5678`.
+  n8n:
+    image: n8nio/n8n:latest
+    environment:
+      - N8N_SECURE_COOKIE=false
+    network_mode: host
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgrest:
+        condition: service_started
