@@ -4,6 +4,14 @@
 bucket of documents; it chunks, embeds (Titan), stores vectors, and answers via `RetrieveAndGenerate`
 — with **Bedrock Guardrails** for grounding/refusal. You own configuration (IaC), not code.
 
+> **Status: code/IaC written, not stood up.** Unlike the no-code arm (self-hosted, $0, run for real —
+> see [its README](../01-nocode-n8n/README.md#real-output)), this arm's own default vector store has
+> a real ~$300+/month floor the moment you create it, whether you run one query or a million (see
+> the cost gotcha below). Standing it up just to screenshot one query and tear it down is exactly the
+> kind of spend this repo's whole thesis argues against doing without a reason. `main.tf` and
+> `query.py` are the real, runnable artifact — apply them with your own AWS account when the cost is
+> justified by an actual workload, not a portfolio demo.
+
 ## What's here
 
 | File | What it is |

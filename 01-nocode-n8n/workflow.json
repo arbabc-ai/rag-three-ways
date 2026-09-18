@@ -1,4 +1,5 @@
 {
+  "id": "rag3w0001",
   "name": "RAG Doc-QA (no-code arm) — embed → pgvector → cite/refuse",
   "nodes": [
     {
@@ -18,47 +19,37 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.openai.com/v1/embeddings",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "url": "http://localhost:11434/api/embeddings",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"text-embedding-3-small\",\n  \"input\": {{ JSON.stringify($json.body.question) }}\n}",
+        "jsonBody": "={\n  \"model\": \"nomic-embed-text\",\n  \"prompt\": {{ JSON.stringify($json.body.question) }}\n}",
         "options": {}
       },
       "id": "b1a1e001-0000-4000-8000-000000000002",
-      "name": "Embed question",
+      "name": "Embed question (Ollama)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [200, 300],
-      "credentials": {
-        "httpHeaderAuth": { "id": "OPENAI_HEADER_AUTH", "name": "OpenAI (Authorization: Bearer)" }
-      }
+      "position": [200, 300]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://YOUR-PROJECT.supabase.co/rest/v1/rpc/match_documents",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "url": "http://localhost:3001/rpc/match_documents",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"query_embedding\": {{ JSON.stringify($json.data[0].embedding) }},\n  \"match_count\": 5\n}",
+        "jsonBody": "={\n  \"query_embedding\": {{ JSON.stringify($json.embedding) }},\n  \"match_count\": 5\n}",
         "options": {}
       },
       "id": "b1a1e001-0000-4000-8000-000000000003",
-      "name": "Vector search (pgvector)",
+      "name": "Vector search (pgvector via PostgREST)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 300],
-      "credentials": {
-        "httpHeaderAuth": { "id": "SUPABASE_HEADER_AUTH", "name": "Supabase (apikey + Authorization)" }
-      }
+      "position": [440, 300]
     },
     {
       "parameters": {
         "jsClass": "",
-        "jsCode": "// Supabase RPC returns an array of {content, source, similarity}.\n// n8n may deliver it as one item (array in .json) or as many items.\nlet rows = [];\nfor (const item of $input.all()) {\n  if (Array.isArray(item.json)) rows.push(...item.json);\n  else rows.push(item.json);\n}\nconst context = rows\n  .map(r => `[source: ${r.source}] ${r.content}`)\n  .join('\\n\\n');\nconst sources = [...new Set(rows.map(r => r.source))];\nconst question = $('Webhook').first().json.body.question;\nreturn [{ json: { question, context, sources } }];"
+        "jsCode": "// PostgREST's RPC endpoint returns a JSON array of {content, source, similarity}.\n// n8n may deliver it as one item (array in .json) or as many items.\nlet rows = [];\nfor (const item of $input.all()) {\n  if (Array.isArray(item.json)) rows.push(...item.json);\n  else rows.push(item.json);\n}\nconst context = rows\n  .map(r => `[source: ${r.source}] ${r.content}`)\n  .join('\\n\\n');\nconst sources = [...new Set(rows.map(r => r.source))];\nconst question = $('Webhook').first().json.body.question;\nreturn [{ json: { question, context, sources } }];"
       },
       "id": "b1a1e001-0000-4000-8000-000000000004",
       "name": "Assemble context",
@@ -69,32 +60,21 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.anthropic.com/v1/messages",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "anthropic-version", "value": "2023-06-01" }
-          ]
-        },
+        "url": "http://localhost:11434/api/chat",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 700,\n  \"system\": \"You answer using ONLY the provided context. After each claim attach a citation like [source: <doc>]. If the context does not support an answer, say: 'The provided sources don't contain enough information to answer that.' Never guess or use outside knowledge.\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": {{ JSON.stringify('Question: ' + $json.question + '\\n\\nContext:\\n' + $json.context) }} }\n  ]\n}",
-        "options": {}
+        "jsonBody": "={\n  \"model\": \"qwen2.5:7b-instruct-q4_K_M\",\n  \"stream\": false,\n  \"options\": { \"temperature\": 0 },\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"You answer using ONLY the provided context. After each claim attach a citation like [source: <doc>]. If the context does not support an answer, say: 'The provided sources don't contain enough information to answer that.' Never guess or use outside knowledge.\" },\n    { \"role\": \"user\", \"content\": {{ JSON.stringify('Question: ' + $json.question + '\\n\\nContext:\\n' + $json.context) }} }\n  ]\n}",
+        "options": { "timeout": 120000 }
       },
       "id": "b1a1e001-0000-4000-8000-000000000005",
-      "name": "Answer (Claude, cite/refuse)",
+      "name": "Answer (Ollama, cite/refuse)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [920, 300],
-      "credentials": {
-        "httpHeaderAuth": { "id": "ANTHROPIC_HEADER_AUTH", "name": "Anthropic (x-api-key)" }
-      }
+      "position": [920, 300]
     },
     {
       "parameters": {
-        "jsCode": "const msg = $json;\nconst answer = (msg.content && msg.content[0] && msg.content[0].text) || '';\nconst sources = $('Assemble context').first().json.sources;\nreturn [{ json: { answer, sources } }];"
+        "jsCode": "const msg = $json;\nconst answer = (msg.message && msg.message.content) || '';\nconst sources = $('Assemble context').first().json.sources;\nreturn [{ json: { answer, sources } }];"
       },
       "id": "b1a1e001-0000-4000-8000-000000000006",
       "name": "Format response",
@@ -116,11 +96,11 @@
     }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Embed question", "type": "main", "index": 0 }]] },
-    "Embed question": { "main": [[{ "node": "Vector search (pgvector)", "type": "main", "index": 0 }]] },
-    "Vector search (pgvector)": { "main": [[{ "node": "Assemble context", "type": "main", "index": 0 }]] },
-    "Assemble context": { "main": [[{ "node": "Answer (Claude, cite/refuse)", "type": "main", "index": 0 }]] },
-    "Answer (Claude, cite/refuse)": { "main": [[{ "node": "Format response", "type": "main", "index": 0 }]] },
+    "Webhook": { "main": [[{ "node": "Embed question (Ollama)", "type": "main", "index": 0 }]] },
+    "Embed question (Ollama)": { "main": [[{ "node": "Vector search (pgvector via PostgREST)", "type": "main", "index": 0 }]] },
+    "Vector search (pgvector via PostgREST)": { "main": [[{ "node": "Assemble context", "type": "main", "index": 0 }]] },
+    "Assemble context": { "main": [[{ "node": "Answer (Ollama, cite/refuse)", "type": "main", "index": 0 }]] },
+    "Answer (Ollama, cite/refuse)": { "main": [[{ "node": "Format response", "type": "main", "index": 0 }]] },
     "Format response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
   },
   "active": false,
