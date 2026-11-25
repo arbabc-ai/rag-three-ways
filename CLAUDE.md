@@ -16,4 +16,4 @@ Build-vs-buy case study: one document-Q&A use case built three ways (no-code n8n
 ## Rules
 - Never run `terraform apply` or `terraform destroy` without explicit approval (OpenSearch Serverless has a real monthly cost floor).
 - Public repo: never commit `.env*`, keys, `*.tfstate*`, `.terraform/`, `data/raw`, chroma stores, `*.pkl` (see `.gitignore`). A local pre-commit hook (`.git/hooks/pre-commit` → `~/.claude/bin/secret-scan-staged.sh`) blocks staged secrets, `.env` files and data; `.claude/settings.json` denies reading/editing `.env`. Bypass only deliberately with `git commit --no-verify`.
-- Local commits only; no push unless asked.
+- Git/push: the global policy in ~/.claude/CLAUDE.md governs; /wrap pushes the current branch via wrap-push.sh. Hard stops still apply: no force-push or history rewrite; never push main/master of velodyn/* repos.
